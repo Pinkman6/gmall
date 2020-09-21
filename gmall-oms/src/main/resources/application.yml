@@ -1,0 +1,11 @@
+server:
+  port: 18083
+feign:
+  sentinel:
+    enabled: true
+mybatis-plus:
+  mapper-locations: classpath:mapper/oms/*.xml  # \u8BFB\u53D6\u6620\u5C04\u6587\u4EF6
+  type-aliases-package: com.atguigu.gmall.oms.entity
+  global-config:
+    db-config:
+      id-type: auto
