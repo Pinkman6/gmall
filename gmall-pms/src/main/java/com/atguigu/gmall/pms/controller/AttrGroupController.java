@@ -1,23 +1,17 @@
 package com.atguigu.gmall.pms.controller;
 
-import java.util.List;
-
+import com.atguigu.gmall.common.bean.PageParamVo;
+import com.atguigu.gmall.common.bean.PageResultVo;
+import com.atguigu.gmall.common.bean.ResponseVo;
+import com.atguigu.gmall.pms.entity.AttrGroupEntity;
+import com.atguigu.gmall.pms.service.AttrGroupService;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.atguigu.gmall.pms.entity.AttrGroupEntity;
-import com.atguigu.gmall.pms.service.AttrGroupService;
-import com.atguigu.gmall.common.bean.PageResultVo;
-import com.atguigu.gmall.common.bean.ResponseVo;
-import com.atguigu.gmall.common.bean.PageParamVo;
+import java.util.List;
 
 /**
  * 属性分组
@@ -33,6 +27,20 @@ public class AttrGroupController {
 
     @Autowired
     private AttrGroupService attrGroupService;
+
+    @GetMapping("withattrs/{catId}")
+    @ApiOperation("查询分类下的组及规格参数")
+    public ResponseVo<List<AttrGroupEntity>> queryGroupsWithAttrsByCid(@PathVariable("catId")Long cid){
+        List<AttrGroupEntity> groupEntityList = attrGroupService.queryGroupsWithAttrsByCid(cid);
+        return ResponseVo.ok(groupEntityList);
+    }
+
+    @GetMapping("category/{cid}")
+    @ApiOperation("根据分类id查询分组信息")
+    public ResponseVo<List<AttrGroupEntity>> queryAttrGroupByPage(@PathVariable("cid")Long cid){
+        List<AttrGroupEntity> groupEntityList = attrGroupService.list(new QueryWrapper<AttrGroupEntity>().eq("category_id", cid));
+        return ResponseVo.ok(groupEntityList);
+    }
 
     /**
      * 列表
