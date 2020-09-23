@@ -11,6 +11,7 @@ import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.FileNotFoundException;
 import java.util.List;
 
 /**
@@ -62,7 +63,7 @@ public class SpuController {
      */
     @PostMapping
     @ApiOperation("保存")
-    public ResponseVo save(@RequestBody SpuVo spuVo){
+    public ResponseVo save(@RequestBody SpuVo spuVo) throws FileNotFoundException {
         this.spuService.bigSave(spuVo);
         return ResponseVo.ok();
     }

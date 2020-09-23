@@ -6,6 +6,8 @@ import com.atguigu.gmall.pms.entity.SpuEntity;
 import com.atguigu.gmall.pms.vo.SpuVo;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.io.FileNotFoundException;
+
 /**
  * spu信息
  *
@@ -19,6 +21,6 @@ public interface SpuService extends IService<SpuEntity> {
 
     PageResultVo querySpuByCidPage(Long categoryId, PageParamVo pageParamVo);
 
-    void bigSave(SpuVo spuVo);
+    void bigSave(SpuVo spuVo) throws FileNotFoundException;
 }
 

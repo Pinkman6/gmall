@@ -2,15 +2,15 @@ package com.atguigu.gmall.pms.service.impl;
 
 import com.atguigu.gmall.common.bean.PageParamVo;
 import com.atguigu.gmall.common.bean.PageResultVo;
-import com.atguigu.gmall.pms.entity.*;
+import com.atguigu.gmall.pms.entity.SkuAttrValueEntity;
+import com.atguigu.gmall.pms.entity.SkuImagesEntity;
+import com.atguigu.gmall.pms.entity.SpuAttrValueEntity;
+import com.atguigu.gmall.pms.entity.SpuEntity;
 import com.atguigu.gmall.pms.feign.GmallSmsClient;
 import com.atguigu.gmall.pms.mapper.SkuMapper;
 import com.atguigu.gmall.pms.mapper.SpuDescMapper;
 import com.atguigu.gmall.pms.mapper.SpuMapper;
-import com.atguigu.gmall.pms.service.SkuAttrValueService;
-import com.atguigu.gmall.pms.service.SkuImagesService;
-import com.atguigu.gmall.pms.service.SpuAttrValueService;
-import com.atguigu.gmall.pms.service.SpuService;
+import com.atguigu.gmall.pms.service.*;
 import com.atguigu.gmall.pms.vo.SkuVo;
 import com.atguigu.gmall.pms.vo.SpuAttrValueVo;
 import com.atguigu.gmall.pms.vo.SpuVo;
@@ -22,6 +22,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Date;
@@ -34,6 +35,9 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
 
     @Autowired
     private SpuDescMapper descMapper;
+
+    @Autowired
+    private SpuDescService descService;
 
     @Autowired
     private SpuAttrValueService baseAttrService;
@@ -83,38 +87,33 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
     }
 
     @Override
-    public void bigSave(SpuVo spuVo) {
+    @Transactional()
+    public void bigSave(SpuVo spuVo)  {
         //1、保存spu信息，需要携带服务器保存的时间
-        spuVo.setCreateTime(new Date());
-        spuVo.setUpdateTime(spuVo.getCreateTime());
-        this.save(spuVo);
-        Long spuId = spuVo.getId();//获得spuId以供后面的信息的保存
+        Long spuId = saveSpu(spuVo);
 
         //2、保存spu描述信息(Spu_desc,即海报图片)
-        List<String> spuImages = spuVo.getSpuImages();
-        if (!CollectionUtils.isEmpty(spuImages)) {
-            SpuDescEntity spuDescEntity = new SpuDescEntity();
-            spuDescEntity.setSpuId(spuId);
-            spuDescEntity.setDecript(StringUtils.join(spuImages, ","));
-            descMapper.insert(spuDescEntity);
-        }
+        this.descService.saveSpuDesc(spuVo, spuId);
+
+
+//        try {
+//            TimeUnit.SECONDS.sleep(5);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        int i = 1 / 0;
+//        new FileInputStream("xxxx");
 
         //3、保存spu基本属性
-        List<SpuAttrValueVo> baseAttrs = spuVo.getBaseAttrs();
-        if (!CollectionUtils.isEmpty(baseAttrs)) {
-            //使用流对象把vo集合转化为实体集合
-            List<SpuAttrValueEntity> spuAttrValueEntities = baseAttrs.stream().map(attr -> {
-                SpuAttrValueEntity spuAttrValueEntity = new SpuAttrValueEntity();
-                BeanUtils.copyProperties(attr, spuAttrValueEntity);
-                spuAttrValueEntity.setSort(0);
-                //添加spuId
-                spuAttrValueEntity.setSpuId(spuId);
-                return spuAttrValueEntity;
-            }).collect(Collectors.toList());
-            //使用service批量加库
-            baseAttrService.saveBatch(spuAttrValueEntities);
-        }
+        saveBaseAttrs(spuVo, spuId);
+
         //4、保存sku相关信息
+        saveSkus(spuVo, spuId);
+    }
+
+
+
+    private void saveSkus(SpuVo spuVo, Long spuId) {
         List<SkuVo> skus = spuVo.getSkus();
         if (CollectionUtils.isEmpty(skus)) {
             return;//如果为空就不用保存sku相关信息
@@ -127,8 +126,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
             List<String> images = skuVo.getImages();
             if (!CollectionUtils.isEmpty(images)) {
                 //如果选择了默认图片就使用默认图片，如果没有的话话就选择第一张
-                skuVo.setDefaultImage(StringUtils.isNotBlank(skuVo.getDefaultImage())?
-                        skuVo.getDefaultImage():images.get(0));
+                skuVo.setDefaultImage(StringUtils.isNotBlank(skuVo.getDefaultImage()) ?
+                        skuVo.getDefaultImage() : images.get(0));
             }
             skuMapper.insert(skuVo);
             Long skuId = skuVo.getId();//获得回显的skuId
@@ -156,7 +155,7 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
             //保存sku的销售属性
             List<SkuAttrValueEntity> saleAttrs = skuVo.getSaleAttrs();
             if (!CollectionUtils.isEmpty(saleAttrs)) {
-                saleAttrs.forEach(saleAttr->{
+                saleAttrs.forEach(saleAttr -> {
                     saleAttr.setSkuId(skuId);
                     saleAttr.setSort(0);
                 });
@@ -169,7 +168,34 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
             skuSaleVo.setSkuId(skuId);//必须携带skuId
             smsClient.saveSales(skuSaleVo);
 
+
         });
+    }
+
+    private void saveBaseAttrs(SpuVo spuVo, Long spuId) {
+        List<SpuAttrValueVo> baseAttrs = spuVo.getBaseAttrs();
+        if (!CollectionUtils.isEmpty(baseAttrs)) {
+            //使用流对象把vo集合转化为实体集合
+            List<SpuAttrValueEntity> spuAttrValueEntities = baseAttrs.stream().map(attr -> {
+                SpuAttrValueEntity spuAttrValueEntity = new SpuAttrValueEntity();
+                BeanUtils.copyProperties(attr, spuAttrValueEntity);
+                spuAttrValueEntity.setSort(0);
+                //添加spuId
+                spuAttrValueEntity.setSpuId(spuId);
+                return spuAttrValueEntity;
+            }).collect(Collectors.toList());
+            //使用service批量加库
+            baseAttrService.saveBatch(spuAttrValueEntities);
+        }
+    }
+
+
+
+    private Long saveSpu(SpuVo spuVo) {
+        spuVo.setCreateTime(new Date());
+        spuVo.setUpdateTime(spuVo.getCreateTime());
+        this.save(spuVo);
+        return spuVo.getId();
     }
 
 
