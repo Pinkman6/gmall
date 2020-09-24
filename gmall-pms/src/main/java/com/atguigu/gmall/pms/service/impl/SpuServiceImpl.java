@@ -18,11 +18,11 @@ import com.atguigu.gmall.sms.vo.SkuSaleVo;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import io.seata.spring.annotation.GlobalTransactional;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Date;
@@ -87,7 +87,7 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
     }
 
     @Override
-    @Transactional()
+    @GlobalTransactional
     public void bigSave(SpuVo spuVo)  {
         //1、保存spu信息，需要携带服务器保存的时间
         Long spuId = saveSpu(spuVo);
@@ -109,6 +109,8 @@ public class SpuServiceImpl extends ServiceImpl<SpuMapper, SpuEntity> implements
 
         //4、保存sku相关信息
         saveSkus(spuVo, spuId);
+        //测试分布式事务是否成功，如果营销信息也可以回滚，说明成功
+//        int i = 1 / 0;
     }
 
 
