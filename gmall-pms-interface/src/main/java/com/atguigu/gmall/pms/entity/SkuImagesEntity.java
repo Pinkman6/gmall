@@ -2,51 +2,42 @@ package com.atguigu.gmall.pms.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-
-import java.io.Serializable;
-import java.util.Date;
 import lombok.Data;
 
+import java.io.Serializable;
+
 /**
- * 商品三级分类
+ * sku图片
  * 
  * @author xiaoliu
  * @email xiaoliu@atguigu.com
  * @date 2020-09-21 19:17:02
  */
 @Data
-@TableName("pms_category")
-public class CategoryEntity implements Serializable {
+@TableName("pms_sku_images")
+public class SkuImagesEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * 分类id
+	 * id
 	 */
 	@TableId
 	private Long id;
 	/**
-	 * 分类名称
+	 * sku_id
 	 */
-	private String name;
+	private Long skuId;
 	/**
-	 * 父分类id
+	 * 图片地址
 	 */
-	private Long parentId;
-	/**
-	 * 是否显示[0-不显示，1显示]
-	 */
-	private Integer status;
+	private String url;
 	/**
 	 * 排序
 	 */
 	private Integer sort;
 	/**
-	 * 图标地址
+	 * 默认图[0 - 不是默认图，1 - 是默认图]
 	 */
-	private String icon;
-	/**
-	 * 计量单位
-	 */
-	private String unit;
+	private Integer defaultStatus;
 
 }
