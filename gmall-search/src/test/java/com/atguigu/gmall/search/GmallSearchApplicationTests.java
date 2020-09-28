@@ -46,8 +46,8 @@ class GmallSearchApplicationTests {
 
     @Test
     void addData() {
-        restTemplate.createIndex(Goods.class);
-        restTemplate.putMapping(Goods.class);
+//        restTemplate.createIndex(Goods.class);
+//        restTemplate.putMapping(Goods.class);
         //分页插入
         Integer pageNum = 1;
         Integer pageSize = 100;

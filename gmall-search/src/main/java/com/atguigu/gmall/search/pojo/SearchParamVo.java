@@ -23,5 +23,5 @@ public class SearchParamVo {
     private Integer sort;
     //分页数据
     private Integer pageSize=20;
-    private Integer pageNum;
+    private Integer pageNum=1;
 }
