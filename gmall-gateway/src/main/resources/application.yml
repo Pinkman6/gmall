@@ -27,3 +27,7 @@ spring:
           uri: lb://sms-service
           predicates:
             - Path=/sms/**
+        - id: search-route # \u8425\u9500\u7BA1\u7406\u8DEF\u7531
+          uri: lb://search-service
+          predicates:
+            - Path=/search/**

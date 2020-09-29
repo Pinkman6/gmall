@@ -76,7 +76,7 @@ class GmallSearchApplicationTests {
                         goods.setSkuId(skuEntity.getId());
                         goods.setDefaultImage(skuEntity.getDefaultImage());
                         goods.setTitle(skuEntity.getTitle());
-                        goods.setSubtitle(skuEntity.getSubtitle());
+                        goods.setSubTitle(skuEntity.getSubtitle());
                         goods.setPrice(skuEntity.getPrice().doubleValue());
                         //2、根据当前的spu获得品牌信息
                         ResponseVo<BrandEntity> brandEntityResponseVo = pmsApi.queryBrandById(spuEntity.getBrandId());

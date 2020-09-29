@@ -12,3 +12,5 @@ spring:
       uris: http://192.168.58.131:9200
   jackson:
     default-property-inclusion: non_null
+  thymeleaf:
+    cache: false

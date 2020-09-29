@@ -53,7 +53,7 @@ public class SearchService {
             //创建查询请求
             SearchRequest searchRequest = new SearchRequest(new String[]{"goods"}, this.buildDsl(searchParamVo));
             //client发送请求获得响应
-            SearchResponse searchResponse = highLevelClient. search(searchRequest, RequestOptions.DEFAULT);
+            SearchResponse searchResponse = highLevelClient.search(searchRequest, RequestOptions.DEFAULT);
             System.out.println("searchResponse = " + searchResponse);
             //解析响应返回数据
             SearchResponseVo searchResponseVo = parseResult(searchResponse);
@@ -66,8 +66,9 @@ public class SearchService {
         }
         return null;
     }
+
     //解析结果集的方法
-    private SearchResponseVo parseResult(SearchResponse searchResponse){
+    private SearchResponseVo parseResult(SearchResponse searchResponse) {
         SearchResponseVo searchResponseVo = new SearchResponseVo();
         //1、设置总命中数
         SearchHits hits = searchResponse.getHits();//获得命中结果
@@ -95,7 +96,7 @@ public class SearchService {
         //获得所有的聚合结果
         Map<String, Aggregation> aggregationMap = searchResponse.getAggregations().asMap();
         //3、设置品牌的聚合信息
-        ParsedLongTerms brandIdAgg = (ParsedLongTerms)aggregationMap.get("brandIdAgg");
+        ParsedLongTerms brandIdAgg = (ParsedLongTerms) aggregationMap.get("brandIdAgg");
         List<? extends Terms.Bucket> buckets = brandIdAgg.getBuckets();
         if (!CollectionUtils.isEmpty(buckets)) {
             //如果品牌桶不为空的话那么就把品牌桶集合转换为品牌集合
@@ -122,7 +123,7 @@ public class SearchService {
         }
 
         //4、设置分类的聚合信息
-        ParsedLongTerms categoryIdAgg =(ParsedLongTerms) aggregationMap.get("categoryIdAgg");
+        ParsedLongTerms categoryIdAgg = (ParsedLongTerms) aggregationMap.get("categoryIdAgg");
         List<? extends Terms.Bucket> categoryIdAggBuckets = categoryIdAgg.getBuckets();
         if (!CollectionUtils.isEmpty(categoryIdAggBuckets)) {
             //cateid聚合里面有桶的话，每个桶就是一个分类,可以使用stream流进行转化成分类集合
@@ -131,7 +132,7 @@ public class SearchService {
                 categoryEntity.setId(((Terms.Bucket) bucket).getKeyAsNumber().longValue());
                 //每个桶下面的分类名称的聚合下面的每个桶都是一个分类名称，一般只有一个
                 Aggregations nameAggs = ((Terms.Bucket) bucket).getAggregations();
-                ParsedStringTerms categoryNameAgg = (ParsedStringTerms)nameAggs.get("categoryNameAgg");
+                ParsedStringTerms categoryNameAgg = (ParsedStringTerms) nameAggs.get("categoryNameAgg");
                 List<? extends Terms.Bucket> nameAggBuckets = categoryNameAgg.getBuckets();
                 if (!CollectionUtils.isEmpty(nameAggBuckets)) {
                     categoryEntity.setName(nameAggBuckets.get(0).getKeyAsString());
@@ -141,8 +142,8 @@ public class SearchService {
             searchResponseVo.setCategories(categoryEntityList);
         }
         //5、设置检索参数的聚合信息
-        ParsedNested attrAgg = (ParsedNested)aggregationMap.get("attrAgg");
-        ParsedLongTerms attrIdAgg = (ParsedLongTerms)attrAgg.getAggregations().get("attrIdAgg");
+        ParsedNested attrAgg = (ParsedNested) aggregationMap.get("attrAgg");
+        ParsedLongTerms attrIdAgg = (ParsedLongTerms) attrAgg.getAggregations().get("attrIdAgg");
         //获得attrid聚合桶，每一个桶就是一个searchAttrValueVo,使用流转成集合
         List<? extends Terms.Bucket> attrIdAggBuckets = attrIdAgg.getBuckets();
         if (!CollectionUtils.isEmpty(attrIdAggBuckets)) {
@@ -150,13 +151,13 @@ public class SearchService {
                 SearchResponseAttrValueVo searchResponseAttrValueVo = new SearchResponseAttrValueVo();
                 searchResponseAttrValueVo.setAttrId(((Terms.Bucket) bucket).getKeyAsNumber().longValue());
                 //att的参数名实在下一级name聚合桶里面
-                ParsedStringTerms attrNameAgg = (ParsedStringTerms)((Terms.Bucket) bucket).getAggregations().get("attrNameAgg");
+                ParsedStringTerms attrNameAgg = (ParsedStringTerms) ((Terms.Bucket) bucket).getAggregations().get("attrNameAgg");
                 List<? extends Terms.Bucket> nameAggBuckets = attrNameAgg.getBuckets();
                 if (!CollectionUtils.isEmpty(nameAggBuckets)) {
                     searchResponseAttrValueVo.setAttrName(nameAggBuckets.get(0).getKeyAsString());
                 }
                 //attr的value集合是在id聚合桶的下一级value聚合桶中
-                ParsedStringTerms attrValueAgg = (ParsedStringTerms)((Terms.Bucket) bucket).getAggregations().get("attrValueAgg");
+                ParsedStringTerms attrValueAgg = (ParsedStringTerms) ((Terms.Bucket) bucket).getAggregations().get("attrValueAgg");
                 List<? extends Terms.Bucket> valueAggBuckets = attrValueAgg.getBuckets();
                 if (!CollectionUtils.isEmpty(valueAggBuckets)) {
                     //每个value桶里面都是一个attrvalue值，所以可以使用流把这个value桶集合转化为String集合
@@ -183,7 +184,7 @@ public class SearchService {
         }
         sourceBuilder.query(boolQuery);
         //0、设置需要查询的字段
-        sourceBuilder.fetchSource(new String[]{"skuId", "defaultImage", "title", "subtitle", "price"}, null);
+        sourceBuilder.fetchSource(new String[]{"skuId", "defaultImage", "title", "subTitle", "price"}, null);
         //1、构建bool查询
         //1.1.must查询条件
         boolQuery.must(QueryBuilders.matchQuery("title", keyword));
@@ -236,22 +237,25 @@ public class SearchService {
         }
         //构建排序条件        1:价格升序，2：价格降序，3：新品排序，4：销量降序
         Integer sort = searchParamVo.getSort();
-        switch (sort) {
-            case 1:
-                sourceBuilder.sort("price", SortOrder.ASC);
-                break;
-            case 2:
-                sourceBuilder.sort("price", SortOrder.DESC);
-                break;
-            case 3:
-                sourceBuilder.sort("createTime", SortOrder.DESC);
-                break;
-            case 4:
-                sourceBuilder.sort("sales", SortOrder.DESC);
-                break;
-            default:
-                sourceBuilder.sort("_score", SortOrder.DESC);
-                break;
+        if (sort != null) {
+
+            switch (sort) {
+                case 1:
+                    sourceBuilder.sort("price", SortOrder.ASC);
+                    break;
+                case 2:
+                    sourceBuilder.sort("price", SortOrder.DESC);
+                    break;
+                case 3:
+                    sourceBuilder.sort("createTime", SortOrder.DESC);
+                    break;
+                case 4:
+                    sourceBuilder.sort("sales", SortOrder.DESC);
+                    break;
+                default:
+                    sourceBuilder.sort("_score", SortOrder.DESC);
+                    break;
+            }
         }
 
         //构建分页条件
@@ -281,4 +285,5 @@ public class SearchService {
         System.out.println("searchSourceBuilder = " + sourceBuilder);
         return sourceBuilder;
     }
+
 }

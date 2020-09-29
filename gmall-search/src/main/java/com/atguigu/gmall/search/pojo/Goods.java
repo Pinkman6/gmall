@@ -27,7 +27,7 @@ public class Goods {
     @Field(type = FieldType.Text,analyzer = "ik_max_word")
     private String title;
     @Field(type = FieldType.Keyword,index = false)
-    private String subtitle;
+    private String subTitle;
 
     //品牌相关信息
     @Field(type = FieldType.Long)
