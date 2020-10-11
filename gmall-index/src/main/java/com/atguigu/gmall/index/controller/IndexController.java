@@ -40,4 +40,39 @@ public class IndexController {
         indexService.testLock();
         return ResponseVo.ok();
     }
+
+    //测试分布式读写锁的读
+    @GetMapping({"index/test/read"})
+    @ResponseBody
+    public ResponseVo testRead(){
+        this.indexService.testRead();
+        return ResponseVo.ok();
+    }
+
+
+    //测试分布式读写锁的写
+    @GetMapping({"index/test/write"})
+    @ResponseBody
+    public ResponseVo testWrite(){
+        this.indexService.testWrite();
+        return ResponseVo.ok();
+    }
+
+
+    //这个是latch方法，等count计数完毕执行
+    @GetMapping({"index/test/latch"})
+    @ResponseBody
+    public ResponseVo testLatch(){
+        String msg = this.indexService.testLatch();
+        return ResponseVo.ok(msg);
+    }
+
+
+    //这个是倒计数当大，执行一次count减1
+    @GetMapping({"index/test/countDown"})
+    @ResponseBody
+    public ResponseVo countDown(){
+        String msg = this.indexService.countDown();
+        return ResponseVo.ok(msg);
+    }
 }
