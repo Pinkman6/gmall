@@ -1,0 +1,9 @@
+server:
+  port: 18088
+feign:
+  sentinel:
+    enabled: true
+
+logging:
+  level:
+    com.atguigu.gmall: debug

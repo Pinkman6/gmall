@@ -27,6 +27,14 @@ public class CategoryController {
     @Autowired
     private CategoryService categoryService;
 
+    //根据categoryId查询一二三级分类
+    @GetMapping("all/{cid3}")
+    public ResponseVo<List<CategoryEntity>> queryCategoriesByCid3(@PathVariable("cid3")Long cid3){
+        List<CategoryEntity> categoryEntities = this.categoryService.queryCategoriesByCid3(cid3);
+        return ResponseVo.ok(categoryEntities);
+    }
+
+
     @GetMapping("parent/withSub/{pid}")
     @ApiOperation("根据以及分类的id查询二类和三类")
     public ResponseVo<List<CategoryEntity>> queryCategoryLv2WithSubsByPid(@PathVariable("pid")Long pid){

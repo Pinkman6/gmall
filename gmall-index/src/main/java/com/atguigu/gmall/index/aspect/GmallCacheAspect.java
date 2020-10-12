@@ -7,6 +7,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,10 +29,20 @@ public class GmallCacheAspect {
     @Autowired
     private RedissonClient redissonClient;
 
+    @Autowired
+    private RBloomFilter bloomFilter;
+
+
     @Around("@annotation(GmallCache)")
     public Object around (ProceedingJoinPoint joinPoint) throws Throwable {
         //需要获得目标方法的参数以及注解里面的前缀参数,以及目标方法的返回类型
         List<Object> args = Arrays.asList(joinPoint.getArgs());
+        String  pid = args.get(0).toString();
+        //使用布隆过滤器查看数据是否在缓存中存在
+        if (!bloomFilter.contains(pid)) {
+            //不存在的话就直接返回
+            return null;
+        }
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         GmallCache gmallCache = signature.getMethod().getAnnotation(GmallCache.class);
         String prefix = gmallCache.prefix();

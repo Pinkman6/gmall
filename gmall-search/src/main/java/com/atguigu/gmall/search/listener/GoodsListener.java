@@ -1,12 +1,12 @@
 package com.atguigu.gmall.search.listener;
 
 import com.atguigu.gmall.common.bean.ResponseVo;
-import com.atguigu.gmall.pms.api.GmallPmsApi;
 import com.atguigu.gmall.pms.entity.*;
+import com.atguigu.gmall.search.feign.GmallPmsClient;
+import com.atguigu.gmall.search.feign.GmallWmsClient;
 import com.atguigu.gmall.search.pojo.Goods;
 import com.atguigu.gmall.search.pojo.SearchAttrValueVo;
 import com.atguigu.gmall.search.repository.GoodsRepository;
-import com.atguigu.gmall.wms.api.GmallWmsApi;
 import com.atguigu.gmall.wms.entity.WareSkuEntity;
 import com.rabbitmq.client.Channel;
 import org.springframework.amqp.core.ExchangeTypes;
@@ -26,97 +26,99 @@ import java.util.stream.Collectors;
 
 @Component
 public class GoodsListener {
-    @Autowired
-    private GmallPmsApi pmsApi;
 
     @Autowired
-    private GmallWmsApi wmsApi;
+    private GmallPmsClient pmsClient;
 
     @Autowired
-    private GoodsRepository goodsRepository;
+    private GmallWmsClient wmsClient;
+
+    @Autowired
+    private GoodsRepository repository;
 
     @RabbitListener(bindings = @QueueBinding(
-            value = @Queue(value = "SEARCH_ADD_QUEUE",durable = "true"),
-            exchange = @Exchange(value = "PMS_ITEM_EXCHANGE",ignoreDeclarationExceptions = "true",type = ExchangeTypes.TOPIC),
+            value = @Queue(value = "SEARCH_ADD_QUEUE", durable = "true"),
+            exchange = @Exchange(value = "PMS_ITEM_EXCHANGE", ignoreDeclarationExceptions = "true", type = ExchangeTypes.TOPIC),
             key = {"item.insert"}
     ))
-    public void listener(Long spuId, Channel channel, Message message) {
+    public void listener(Long spuId, Channel channel, Message message){
+        // 查询出spu下所有的sku集合
+        ResponseVo<List<SkuEntity>> skusResponseVo = this.pmsClient.querySkusBySpuId(spuId);
+        List<SkuEntity> skuEntities = skusResponseVo.getData();
+        if (!CollectionUtils.isEmpty(skuEntities)) {
+            // 转化成goods集合
+            List<Goods> goodsList = skuEntities.stream().map(skuEntity -> {
+                Goods goods = new Goods();
 
+                // sku相关信息
+                goods.setSkuId(skuEntity.getId());
+                goods.setTitle(skuEntity.getTitle());
+                goods.setSubTitle(skuEntity.getSubtitle());
+                goods.setPrice(skuEntity.getPrice().doubleValue());
+                goods.setDefaultImage(skuEntity.getDefaultImage());
 
-            //根据当前的spuid查询出下面的所有的sku
-            ResponseVo<List<SkuEntity>> skuEntitiesResponseVo = pmsApi.querySkuBySpuId(spuId);
-            List<SkuEntity> skuEntities = skuEntitiesResponseVo.getData();
-            if (!CollectionUtils.isEmpty(skuEntities)) {
-                //使用流把sku集合转化成goods集合
-                List<Goods> goodsList = skuEntities.stream().map(skuEntity -> {
-                    Goods goods = new Goods();
-                    //1、设置sku相关信息
-                    goods.setSkuId(skuEntity.getId());
-                    goods.setDefaultImage(skuEntity.getDefaultImage());
-                    goods.setTitle(skuEntity.getTitle());
-                    goods.setSubTitle(skuEntity.getSubtitle());
-                    goods.setPrice(skuEntity.getPrice().doubleValue());
-                    //2、根据当前的spu获得品牌信息
-                    SpuEntity spuEntity = this.pmsApi.querySpuById(spuId).getData();
-                    ResponseVo<BrandEntity> brandEntityResponseVo = pmsApi.queryBrandById(spuEntity.getBrandId());
-                    BrandEntity brandEntity = brandEntityResponseVo.getData();
-                    if (brandEntity != null) {
-                        goods.setBrandId(brandEntity.getId());
-                        goods.setBrandName(brandEntity.getName());
-                        goods.setLogo(brandEntity.getLogo());
-                    }
-                    //3、根据spu获得当前的分类信息
-                    ResponseVo<CategoryEntity> categoryEntityResponseVo = pmsApi.queryCategoryById(spuEntity.getCategoryId());
-                    CategoryEntity categoryEntity = categoryEntityResponseVo.getData();
-                    if (categoryEntity != null) {
-                        goods.setCategoryId(categoryEntity.getId());
-                        goods.setCategoryName(categoryEntity.getName());
-                    }
-                    //4、设置spu相关信息
+                // 品牌相关信息
+                ResponseVo<BrandEntity> brandEntityResponseVo = this.pmsClient.queryBrandById(skuEntity.getBrandId());
+                BrandEntity brandEntity = brandEntityResponseVo.getData();
+                if (brandEntity != null) {
+                    goods.setBrandId(brandEntity.getId());
+                    goods.setBrandName(brandEntity.getName());
+                    goods.setLogo(brandEntity.getLogo());
+                }
+
+                // 分类相关信息
+                ResponseVo<CategoryEntity> categoryEntityResponseVo = this.pmsClient.queryCategoryById(skuEntity.getCatagoryId());
+                CategoryEntity categoryEntity = categoryEntityResponseVo.getData();
+                if (categoryEntity != null) {
+                    goods.setCategoryId(categoryEntity.getId());
+                    goods.setCategoryName(categoryEntity.getName());
+                }
+
+                // spu相关信息
+                ResponseVo<SpuEntity> spuEntityResponseVo = this.pmsClient.querySpuById(spuId);
+                SpuEntity spuEntity = spuEntityResponseVo.getData();
+                if (spuEntity != null){
                     goods.setCreateTime(spuEntity.getCreateTime());
-                    //5、设置库存相关信息
-                    ResponseVo<List<WareSkuEntity>> wareSkuEntitiesVo = wmsApi.queryWareSkuBySkuId(skuEntity.getId());
-                    List<WareSkuEntity> wareSkuEntities = wareSkuEntitiesVo.getData();
-                    if (!CollectionUtils.isEmpty(wareSkuEntities)) {
-                        //使用流判断是否有货
-                        goods.setStore(wareSkuEntities.stream().anyMatch(wareSkuEntity -> wareSkuEntity.getStock() - wareSkuEntity.getStockLocked() > 0));
-                        //使用流计算合计的销量
-                        goods.setSales(wareSkuEntities.stream().map(WareSkuEntity::getSales).reduce((a, b) -> a + b).get());
-                    }
-                    //6、设置搜索参数集合
-                    ArrayList<SearchAttrValueVo> searchAttrValueVos = new ArrayList<>();
-                    //6.1. 设置spu的搜索参数到搜索参数集合中
-                    ResponseVo<List<SpuAttrValueEntity>> spuAttrValueEntitiesVo = pmsApi.querySearchSpuAttrValuesByCidAndSpuId(spuEntity.getCategoryId(), spuEntity.getId());
-                    List<SpuAttrValueEntity> spuAttrValueEntities = spuAttrValueEntitiesVo.getData();
-                    if (!CollectionUtils.isEmpty(spuAttrValueEntities)) {
-                        List<SearchAttrValueVo> searchSpuAttrValues = spuAttrValueEntities.stream().map(spuAttrValueEntity -> {
-                            SearchAttrValueVo searchAttrValueVo = new SearchAttrValueVo();
-                            BeanUtils.copyProperties(spuAttrValueEntity, searchAttrValueVo);
-                            return searchAttrValueVo;
-                        }).collect(Collectors.toList());
-                        //加入到搜索参数集合中
-                        searchAttrValueVos.addAll(searchSpuAttrValues);
-                    }
-                    //6.2。 设置sku的搜索参数到搜索参数集合中
-                    ResponseVo<List<SkuAttrValueEntity>> skuAttrValueEntitiesVo = pmsApi.querySearchSkuAttrValuesByPaCidAndSkuId(spuEntity.getCategoryId(), skuEntity.getId());
-                    List<SkuAttrValueEntity> skuAttrValueEntities = skuAttrValueEntitiesVo.getData();
-                    if (!CollectionUtils.isEmpty(skuAttrValueEntities)) {
-                        List<SearchAttrValueVo> searchSkuAttrValues = skuAttrValueEntities.stream().map(skuAttrValueEntity -> {
-                            SearchAttrValueVo searchAttrValueVo = new SearchAttrValueVo();
-                            BeanUtils.copyProperties(skuAttrValueEntity, searchAttrValueVo);
-                            return searchAttrValueVo;
-                        }).collect(Collectors.toList());
-                        searchAttrValueVos.addAll(searchSkuAttrValues);
-                    }
-                    goods.setSearchAttrs(searchAttrValueVos);//最终设置给goods
+                }
 
-                    return goods;
-                }).collect(Collectors.toList());
-                //2、向es输入数据
-                goodsRepository.saveAll(goodsList);
-            }
+                // 库存相关信息
+                ResponseVo<List<WareSkuEntity>> wareSkusResponseVO = this.wmsClient.queryWareSkusBySkuId(skuEntity.getId());
+                List<WareSkuEntity> wareSkuEntities = wareSkusResponseVO.getData();
+                if (!CollectionUtils.isEmpty(wareSkuEntities)) {
+                    goods.setStore(wareSkuEntities.stream().anyMatch(wareSkuEntity -> wareSkuEntity.getStock() - wareSkuEntity.getStockLocked() > 0));
+                    goods.setSales(wareSkuEntities.stream().map(WareSkuEntity::getSales).reduce((a, b) -> a + b).get());
+                }
 
+                // 检索属性和值
+                List<SearchAttrValueVo> attrValueVos = new ArrayList<>();
+                // skuAttrValueEntity
+                ResponseVo<List<SkuAttrValueEntity>> skuAttrsResponseVo = this.pmsClient.querySearchSkuAttrValuesByCidAndSkuId(skuEntity.getCatagoryId(), skuEntity.getId());
+                List<SkuAttrValueEntity> searchSkuAttrValueEntities = skuAttrsResponseVo.getData();
+                if (!CollectionUtils.isEmpty(searchSkuAttrValueEntities)) {
+                    attrValueVos.addAll(searchSkuAttrValueEntities.stream().map(skuAttrValueEntity -> {
+                        SearchAttrValueVo searchAttrValueVo = new SearchAttrValueVo();
+                        BeanUtils.copyProperties(skuAttrValueEntity, searchAttrValueVo);
+                        return searchAttrValueVo;
+                    }).collect(Collectors.toList()));
+                }
 
+                // spuAttrValueEntity
+                ResponseVo<List<SpuAttrValueEntity>> spuAttrsResponseVo = this.pmsClient.querySearchSpuAttrValuesByCidAndSpuId(skuEntity.getCatagoryId(), spuId);
+                List<SpuAttrValueEntity> searchSpuAttrValueEntities = spuAttrsResponseVo.getData();
+                if (!CollectionUtils.isEmpty(searchSpuAttrValueEntities)) {
+                    attrValueVos.addAll(searchSpuAttrValueEntities.stream().map(spuAttrValueEntity -> {
+                        SearchAttrValueVo searchAttrValueVo = new SearchAttrValueVo();
+                        BeanUtils.copyProperties(spuAttrValueEntity, searchAttrValueVo);
+                        return searchAttrValueVo;
+                    }).collect(Collectors.toList()));
+                }
+                goods.setSearchAttrs(attrValueVos);
 
+                return goods;
+            }).collect(Collectors.toList());
+
+            // 批量导入到es
+            this.repository.saveAll(goodsList);
+        }
     }
 }
