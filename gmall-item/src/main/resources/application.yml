@@ -7,3 +7,11 @@ feign:
 logging:
   level:
     com.atguigu.gmall: debug
+threadPool:
+  coreSize: 100
+  maxsize: 500
+  keepAlive: 60
+  blockingSize: 5000
+spring:
+  thymeleaf:
+    cache: false

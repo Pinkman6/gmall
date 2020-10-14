@@ -35,12 +35,23 @@ spring:
           uri: lb://index-service
           predicates:
             - Host=gmall.com, index.gmall.com, www.gmall.com
+          filters:
+            - AddResponseHeader=xxx,yyy
+            - Auth=/
           # - Path=/index/**  如果写在一个里面，他们的关系是and关系
         - id: index-route2 # 首页的异步请求路由
           uri: lb://index-service
           predicates:
             - Path=/index/**
-        - id: item-route
+        - id: item-route # 详情页的同步请求路由
           uri: lb://item-service
           predicates:
-            - Path=/item/**
+            - Host=item.gmall.com
+        - id: auth-route # 认证中心的同步请求路由
+          uri: lb://auth-service
+          predicates:
+            - Host=sso.gmall.com
+auth:
+  jwt:
+    pubKeyPath: D:\Learning\IDEAWorkspace\rsa\rsa.pub
+    cookieName: GMALL-TOKEN

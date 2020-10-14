@@ -17,9 +17,9 @@ import java.util.List;
 /**
  * 商品spu积分设置
  *
- * @author xiaoliu
- * @email xiaoliu@atguigu.com
- * @date 2020-09-21 20:00:16
+ * @author fengge
+ * @email fengge@atguigu.com
+ * @date 2020-09-21 14:07:45
  */
 @Api(tags = "商品spu积分设置 管理")
 @RestController
@@ -29,18 +29,15 @@ public class SkuBoundsController {
     @Autowired
     private SkuBoundsService skuBoundsService;
 
-
     @GetMapping("sku/{skuId}")
-    @ApiOperation("通过skuid查询积分、满减、折扣的信息")
-    public ResponseVo<List<ItemSaleVo>> queryItemSalesBySkuId(@PathVariable("skuId") Long skuId){
+    public ResponseVo<List<ItemSaleVo>> queryItemSalesBySkuId(@PathVariable("skuId")Long skuId){
         List<ItemSaleVo> itemSaleVos = this.skuBoundsService.queryItemSalesBySkuId(skuId);
         return ResponseVo.ok(itemSaleVos);
     }
 
     @PostMapping("sales")
-    @ApiOperation("保存sku积分、折扣、满减")
-    public ResponseVo saveSales(@RequestBody SkuSaleVo SkuSaleVo){
-        skuBoundsService.saveSales(SkuSaleVo);
+    public ResponseVo saveSales(@RequestBody SkuSaleVo skuSaleVo){
+        this.skuBoundsService.saveSales(skuSaleVo);
         return ResponseVo.ok();
     }
 
@@ -62,7 +59,7 @@ public class SkuBoundsController {
     @GetMapping("{id}")
     @ApiOperation("详情查询")
     public ResponseVo<SkuBoundsEntity> querySkuBoundsById(@PathVariable("id") Long id){
-		SkuBoundsEntity skuBounds = skuBoundsService.getById(id);
+        SkuBoundsEntity skuBounds = skuBoundsService.getById(id);
 
         return ResponseVo.ok(skuBounds);
     }
@@ -73,7 +70,7 @@ public class SkuBoundsController {
     @PostMapping
     @ApiOperation("保存")
     public ResponseVo<Object> save(@RequestBody SkuBoundsEntity skuBounds){
-		skuBoundsService.save(skuBounds);
+        skuBoundsService.save(skuBounds);
 
         return ResponseVo.ok();
     }
@@ -84,7 +81,7 @@ public class SkuBoundsController {
     @PostMapping("/update")
     @ApiOperation("修改")
     public ResponseVo update(@RequestBody SkuBoundsEntity skuBounds){
-		skuBoundsService.updateById(skuBounds);
+        skuBoundsService.updateById(skuBounds);
 
         return ResponseVo.ok();
     }
@@ -95,7 +92,7 @@ public class SkuBoundsController {
     @PostMapping("/delete")
     @ApiOperation("删除")
     public ResponseVo delete(@RequestBody List<Long> ids){
-		skuBoundsService.removeByIds(ids);
+        skuBoundsService.removeByIds(ids);
 
         return ResponseVo.ok();
     }

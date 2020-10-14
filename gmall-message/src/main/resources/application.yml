@@ -1,0 +1,15 @@
+server:
+  port: 18100
+logging:
+  level:
+    com.atguigu.gmall: debug
+  rabbitmq:
+    host: 192.168.58.131
+    virtual-host: /xiaoliu
+    username: xiaoliu
+    password: xiaoliu
+    publisher-confirm-type: correlated
+    publisher-returns: true
+spring:
+  redis:
+    host: 192.168.58.131

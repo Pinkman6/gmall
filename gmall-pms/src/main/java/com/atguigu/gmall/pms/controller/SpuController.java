@@ -70,7 +70,7 @@ public class SpuController {
      */
     @PostMapping
     @ApiOperation("保存")
-    public ResponseVo save(@RequestBody SpuVo spuVo) throws FileNotFoundException {
+    public ResponseVo<Object> save(@RequestBody SpuVo spuVo) throws FileNotFoundException {
         this.spuService.bigSave(spuVo);
         return ResponseVo.ok();
     }
