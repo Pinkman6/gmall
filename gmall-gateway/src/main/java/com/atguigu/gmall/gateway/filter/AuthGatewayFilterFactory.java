@@ -26,81 +26,91 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-@Component
 @EnableConfigurationProperties(JwtProperties.class)
+@Component
 public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthGatewayFilterFactory.PathConfig> {
 
     @Autowired
-    private JwtProperties jwtProperties;
+    private JwtProperties properties;
+
+    @Override
+    public GatewayFilter apply(PathConfig config) {
+
+        return new GatewayFilter() {
+            @Override
+            public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+                System.out.println("这是局部过滤器只能拦截特定服务！" + config);
+
+                // httpServletRequest --> ServerHttpRequest
+                ServerHttpRequest request = exchange.getRequest();
+                ServerHttpResponse response = exchange.getResponse();
+
+                // 1.判断当前请求的路径在不在拦截名单之中，不在放行
+                List<String> pathes = config.pathes; // 拦截名单
+                String curPath = request.getURI().getPath(); // 当前请求的路径
+                if (pathes.stream().allMatch(path -> curPath.indexOf(path) == -1)) {
+                    return chain.filter(exchange);
+                }
+
+                // 2.获取token信息：header cookie
+                String token = request.getHeaders().getFirst("token"); // 异步访问，通过token头信息获取token
+                if (StringUtils.isBlank(token)){ // 如果头信息中没有token，再次重试从cookie中获取
+                    MultiValueMap<String, HttpCookie> cookies = request.getCookies();
+                    if (!CollectionUtils.isEmpty(cookies) && cookies.containsKey(properties.getCookieName())){
+                        HttpCookie cookie = cookies.getFirst(properties.getCookieName());
+                        token = cookie.getValue();
+                    }
+                }
+
+                // 3.判断token是否为空，为空拦截
+                if (StringUtils.isBlank(token)){
+                    // 重定向到登录页面
+                    response.setStatusCode(HttpStatus.SEE_OTHER);
+                    response.getHeaders().set(HttpHeaders.LOCATION, "http://sso.gmall.com/toLogin.html?returnUrl=" + request.getURI());
+                    // 请求结束
+                    return response.setComplete();
+                }
+
+                try {
+                    // 4.解析token信息，异常拦截
+                    Map<String, Object> map = JwtUtils.getInfoFromToken(token, properties.getPublicKey());
+
+                    // 5.获取载荷中ip，获取当前请求中的ip。如果两个ip不相等拦截
+                    String ip = map.get("ip").toString();
+                    String curIp = IpUtil.getIpAddressAtGateway(request);
+                    if (!StringUtils.equals(ip, curIp)){
+                        // 重定向到登录页面
+                        response.setStatusCode(HttpStatus.SEE_OTHER);
+                        response.getHeaders().set(HttpHeaders.LOCATION, "http://sso.gmall.com/toLogin.html?returnUrl" + request.getURI());
+                        // 请求结束
+                        return response.setComplete();
+                    }
+
+                    // 6.把载荷信息传递给后续服务
+                    request.mutate().header("userId", map.get("userId").toString()).build();
+                    exchange.mutate().request(request).build();
+
+                    // 7.放行
+                    return chain.filter(exchange);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // 重定向到登录页面
+                    response.setStatusCode(HttpStatus.SEE_OTHER);
+                    response.getHeaders().set(HttpHeaders.LOCATION, "http://sso.gmall.com/toLogin.html?returnUrl" + request.getURI());
+                    // 请求结束
+                    return response.setComplete();
+                }
+            }
+        };
+    }
 
     public AuthGatewayFilterFactory() {
         super(PathConfig.class);
     }
 
     @Override
-    public GatewayFilter apply(PathConfig config) {
-        return new GatewayFilter() {
-            @Override
-            public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-                System.out.println("这是局部过滤器，可以指定拦截"+config);
-                ServerHttpRequest request = exchange.getRequest();
-                ServerHttpResponse response = exchange.getResponse();
-                //1、判断这个请求的地址路径中是不是包含黑名单中的任意一个路径，如果否不包含的话放行
-                List<String> paths = config.getPaths();
-                String curpath = request.getURI().getPath();
-                boolean allMatch = paths.stream().allMatch(path -> curpath.indexOf(path) == -1);
-                if (allMatch){
-                    return chain.filter(exchange);
-                }
-                //2、获得请求头中的token或者在cookie中获得token
-                String token = request.getHeaders().getFirst("token");
-                if (StringUtils.isBlank(token)) {
-                    //如果请求头中没有token的话，就去cookie中找
-                    MultiValueMap<String, HttpCookie> cookies = request.getCookies();
-                    if (!CollectionUtils.isEmpty(cookies) || cookies.containsKey(jwtProperties.getCookieName())) {
-                        HttpCookie cookie = cookies.getFirst(jwtProperties.getCookieName());
-                        token = cookie.getValue();
-                    }
-                }
-
-                //3、判断是否为空，如果是空的拦截,并转到登录页，，请求结束
-                if (StringUtils.isBlank(token)) {
-                    response.setStatusCode(HttpStatus.SEE_OTHER);//设置303，要重定向
-                    response.getHeaders().set(HttpHeaders.LOCATION, "http://sso.gmall.com/toLogin.html?returnUrl=" + request.getURI());
-                    return response.setComplete();
-                }
-                //4、如果不是空的话，那么解析token，获得载荷信息
-                try {
-                    Map<String, Object> map = JwtUtils.getInfoFromToken(token, jwtProperties.getPublicKey());
-                    //5、如果ip不同的话，拦截
-                    String ip = map.get("ip").toString();
-                    String curIp = IpUtil.getIpAddressAtGateway(request);
-                    if (!StringUtils.equals(ip, curIp)) {
-                        response.setStatusCode(HttpStatus.SEE_OTHER);//设置303，要重定向
-                        response.getHeaders().set(HttpHeaders.LOCATION, "http://sso.gmall.com/toLogin.html?returnUrl=" + request.getURI());
-                        return response.setComplete();
-                    }
-                    //6、获得请求头中的ip信息，比较载荷中的ip信息，如果相同放行
-                    //---把用户信息转发给微服务,网关和微服务的架构不同，但是请求都是遵循http协议，可以再转发的请求中添加头
-                    request.mutate().header("userId", map.get("userId").toString()).build();
-                    exchange.mutate().request(request).build();
-
-                    //7、放行
-                    return chain.filter(exchange);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    response.setStatusCode(HttpStatus.SEE_OTHER);//设置303，要重定向
-                    response.getHeaders().set(HttpHeaders.LOCATION, "http://sso.gmall.com/toLogin.html?returnUrl=" + request.getURI());
-                    return response.setComplete();
-                }
-            }
-
-        };
-    }
-
-    @Override
     public List<String> shortcutFieldOrder() {
-        return Arrays.asList("paths");
+        return Arrays.asList("pathes");
     }
 
     @Override
@@ -110,8 +120,7 @@ public class AuthGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthG
 
     @Data
     @ToString
-    public static class PathConfig{
-
-        private List<String> paths;
+    public static class PathConfig {
+        private List<String> pathes;
     }
 }
