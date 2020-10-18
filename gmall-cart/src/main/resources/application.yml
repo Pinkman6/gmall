@@ -38,6 +38,16 @@ spring:
         await-termination: true
         await-termination-period: 60
       thread-name-prefix: cart-task-
+  rabbitmq:
+    host: 192.168.58.131
+    virtual-host: /xiaoliu
+    username: xiaoliu
+    password: xiaoliu
+    listener:
+      simple:
+        prefetch: 1
+        concurrency: 3
+        acknowledge-mode: manual
 feign:
   sentinel:
     enabled: true

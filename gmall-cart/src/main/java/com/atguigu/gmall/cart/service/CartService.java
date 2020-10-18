@@ -43,6 +43,8 @@ public class CartService {
 
     //设置在Redis中保存数据的key的前缀
     private static final String KEY_PREFIX = "cart:info:";
+    //设置在Redis中价格缓存的前缀
+    private static final String PRICE_PREFIX = "cart:price:";
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -68,6 +70,7 @@ public class CartService {
             cart = JSON.parseObject(cartJson, Cart.class);
             //更新数量
             cart.setCount(cart.getCount().add(count));
+
 
             //异步新增MySQL
             cartAsyncService.updateCart(userId, cart);
@@ -103,11 +106,16 @@ public class CartService {
             cart.setSaleAttrs(JSON.toJSONString(listResponseVo2.getData()));
 
             //然后同步到MySQL数据库中
-            cartAsyncService.insertCart(cart);
+            cartAsyncService.insertCart(userId,cart);
+
+            //记录价格缓存
+            if (skuEntity!=null) {
+
+                redisTemplate.opsForValue().set(PRICE_PREFIX+skuIdString,skuEntity.getPrice().toString());
+            }
         }
         //5.//更新/新增到Redis中去
         hashOps.put(skuIdString, JSON.toJSONString(cart));
-        //6.
     }
 
     private String getUserId() {
@@ -149,7 +157,11 @@ public class CartService {
         List<Object> cartJsons = unloginHashOps.values();
         List<Cart> unloginCarts = null;
         if (!CollectionUtils.isEmpty(cartJsons)){
-            unloginCarts = cartJsons.stream().map(cartJson -> JSON.parseObject(cartJson.toString(), Cart.class)).collect(Collectors.toList());
+            unloginCarts = cartJsons.stream().map(cartJson -> {
+                Cart cart = JSON.parseObject(cartJson.toString(), Cart.class);
+                cart.setCurrentPrice(new BigDecimal(redisTemplate.opsForValue().get(PRICE_PREFIX + cart.getSkuId())));
+                return cart;
+            }).collect(Collectors.toList());
         }
 
         // 2.获取userId，判断是否登录。未登录则直接返回未登录的购物车
@@ -176,7 +188,7 @@ public class CartService {
                 } else {
                     // 新增购物车记录
                     cart.setUserId(userId.toString());
-                    cartAsyncService.insertCart(cart);
+                    cartAsyncService.insertCart(userId.toString(),cart);
                 }
                 loginHashOps.put(cart.getSkuId().toString(), JSON.toJSONString(cart));
             });
@@ -189,7 +201,11 @@ public class CartService {
         // 5.以userId获取登录状态的购物车
         List<Object> loginCartJsons = loginHashOps.values();
         if (!CollectionUtils.isEmpty(loginCartJsons)){
-            return loginCartJsons.stream().map(cartJson -> JSON.parseObject(cartJson.toString(), Cart.class)).collect(Collectors.toList());
+            return loginCartJsons.stream().map(cartJson -> {
+                Cart cart = JSON.parseObject(cartJson.toString(), Cart.class);
+                cart.setCurrentPrice(new BigDecimal(redisTemplate.opsForValue().get(PRICE_PREFIX + cart.getSkuId())));
+                return cart;
+            }).collect(Collectors.toList());
         }
         return null;
     }
@@ -207,6 +223,20 @@ public class CartService {
             cartAsyncService.updateCart(userId, cart);
 
         }
+    }
+
+    public void deleteCart(Long skuId) {
+        //1、获得userId
+        String userId = getUserId();
+        //2、获得内层的map
+        BoundHashOperations<String, Object, Object> hashOps = redisTemplate.boundHashOps(KEY_PREFIX + userId);
+        //3、如果购物车中有这个skuid对应的信息的话就删除
+        if (hashOps.hasKey(skuId.toString())) {
+            hashOps.delete(skuId.toString());
+            //4、异步删除购物车信息
+            cartAsyncService.deleteCartByUserIdAndSkuId(userId,skuId);
+        }
+
     }
 
     @Async

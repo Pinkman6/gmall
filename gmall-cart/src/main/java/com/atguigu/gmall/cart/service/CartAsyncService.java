@@ -19,7 +19,9 @@ public class CartAsyncService {
     }
 
     @Async
-    public void insertCart(Cart cart) {
+    public void insertCart(String userId,Cart cart) {
+        //测试分布式任务
+//        int i = 1 / 0;
         //更新到MySQL数据库中
         cartMapper.insert(cart);
     }
@@ -31,6 +33,10 @@ public class CartAsyncService {
 
     }
 
-
+    @Async
+    public void deleteCartByUserIdAndSkuId(String userId, Long skuId) {
+        //根据userId和skuId 删除购物车的信息
+        cartMapper.delete(new QueryWrapper<Cart>().eq("user_id", userId).eq("sku_id", skuId));
+    }
 }
 

@@ -8,6 +8,7 @@ import com.atguigu.gmall.pms.service.SpuService;
 import com.atguigu.gmall.pms.vo.SpuVo;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +29,11 @@ public class SpuController {
 
     @Autowired
     private SpuService spuService;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+
 
     @ApiOperation("带关键字的分页查询")
     @GetMapping("category/{categoryId}")
@@ -82,7 +88,8 @@ public class SpuController {
     @ApiOperation("修改")
     public ResponseVo update(@RequestBody SpuEntity spu){
 		spuService.updateById(spu);
-
+        //发送消息更新Redis数据库里面的实时价格数据
+        this.rabbitTemplate.convertAndSend("PMS_SPU_EXCHANGE","item.update",spu.getId());
         return ResponseVo.ok();
     }
 

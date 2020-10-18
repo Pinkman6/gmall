@@ -42,13 +42,22 @@ public class CartController {
         return "cart";
     }
 
-    //新增购物车信息
+    //更新购物车数量信息
     @PostMapping("updateNum")
     @ResponseBody
     public ResponseVo updateNum(@RequestBody Cart cart) {
         this.cartService.updateNum(cart);
         return ResponseVo.ok();
     }
+
+    //根据skuId删除购物车信息
+    @PostMapping("deleteCart")
+    @ResponseBody
+    public ResponseVo deleteCart(@RequestParam("skuId") Long skuId) {
+        this.cartService.deleteCart(skuId);
+        return ResponseVo.ok();
+    }
+
 
 
     @GetMapping("test")
