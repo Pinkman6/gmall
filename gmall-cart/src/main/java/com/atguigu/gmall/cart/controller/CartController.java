@@ -51,13 +51,20 @@ public class CartController {
     }
 
     //根据skuId删除购物车信息
-    @PostMapping("deleteCart")
+    @GetMapping("deleteCart")
     @ResponseBody
     public ResponseVo deleteCart(@RequestParam("skuId") Long skuId) {
         this.cartService.deleteCart(skuId);
         return ResponseVo.ok();
     }
 
+    //根据userId查询用户选中的购物车信息，主要的是skuId和count
+    @GetMapping("checked/{userId}")
+    @ResponseBody
+    public ResponseVo<List<Cart>> queryCheckedCartsByUserId(@PathVariable("userId")Long userId){
+        List<Cart> carts = this.cartService.queryCheckedCartsByUserId(userId);
+        return ResponseVo.ok(carts);
+    }
 
 
     @GetMapping("test")

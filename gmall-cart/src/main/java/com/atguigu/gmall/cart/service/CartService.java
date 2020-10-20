@@ -7,7 +7,7 @@ import com.atguigu.gmall.cart.feign.GmallSmsClient;
 import com.atguigu.gmall.cart.feign.GmallWmsClient;
 import com.atguigu.gmall.cart.interceptor.LoginInterceptor;
 import com.atguigu.gmall.cart.pojo.Cart;
-import com.atguigu.gmall.cart.pojo.UserInfo;
+import com.atguigu.gmall.common.bean.UserInfo;
 import com.atguigu.gmall.common.bean.ResponseVo;
 import com.atguigu.gmall.pms.entity.SkuAttrValueEntity;
 import com.atguigu.gmall.pms.entity.SkuEntity;
@@ -263,5 +263,15 @@ public class CartService {
     }
 
 
+    public List<Cart> queryCheckedCartsByUserId(Long userId) {
+        String key = KEY_PREFIX + userId;
 
+        BoundHashOperations<String, Object, Object> hashOps = this.redisTemplate.boundHashOps(key);
+        List<Object> values = hashOps.values();
+        if (!CollectionUtils.isEmpty(values)){
+            return values.stream().map(cartJson -> JSON.parseObject(cartJson.toString(), Cart.class))
+                    .filter(Cart::getCheck).collect(Collectors.toList());
+        }
+        return null;
+    }
 }
