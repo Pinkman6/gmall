@@ -42,4 +42,18 @@ public class OrderListener {
         }
         channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
     }
+
+    @RabbitListener(bindings = @QueueBinding(
+            value = @Queue(value = "ORDER_SUCCESS_QUEUE",durable = "true"),
+            exchange = @Exchange(value = "ORDER_EXCHANGE",ignoreDeclarationExceptions = "true",type = ExchangeTypes.TOPIC),
+            key = {"order.success"}
+    ))
+    public void successOrder(String orderToken, Channel channel, Message message) throws IOException {
+        if (this.orderMapper.updateStatus(orderToken, 0,1)==1){
+            //如果更新成功的话，那么就发送消息给wms去减库存
+            this.rabbitTemplate.convertAndSend("ORDER_EXCHANGE","stock.minus",orderToken);
+        }
+        channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+
+    }
 }

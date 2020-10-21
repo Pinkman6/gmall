@@ -66,6 +66,10 @@ spring:
             - Host=payment.gmall.com
           filters:
             - Auth=/
+        - id: payment-route2 # 支付成功的异步回调设置的路径路由
+          uri: lb://payment-service
+          predicates:
+            - Path=/pay/**
 auth:
   jwt:
     pubKeyPath: D:\Learning\IDEAWorkspace\rsa\rsa.pub

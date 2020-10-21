@@ -19,4 +19,6 @@ public interface WareSkuMapper extends BaseMapper<WareSkuEntity> {
     public List<WareSkuEntity> check(@Param("skuId") Long skuId,@Param("count") Integer count);
     public int lock(@Param("id") Long id,@Param("count") Integer count);
     public int unlock(@Param("id") Long id,@Param("count") Integer count);
+
+    int minus(@Param("id") Long id,@Param("count")Integer count);
 }
